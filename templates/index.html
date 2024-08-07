@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Feature Extractor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        pre {
+            text-align: left;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        img {
+            max-width: 100%;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        a.download-link {
+            display: none;
+            margin-top: 10px;
+            background-color: #008CBA;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        a.download-link:hover {
+            background-color: #007B9E;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload an Image</h1>
+        <form id="upload-form" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" accept="image/*" required>
+            <button type="submit">Upload</button>
+        </form>
+        <div id="result">
+            <h2>Result:</h2>
+            <pre id="feature-data"></pre>
+            <img id="avatar" src="" alt="Avatar">
+            <a id="download-link" class="download-link" href="#" download>Download Avatar</a>
+        </div>
+    </div>
+
+    <script>
+        const form = document.querySelector('#upload-form');
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(form);
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.error) {
+                alert('Error: ' + data.error);
+            } else {
+                document.getElementById('feature-data').textContent = JSON.stringify(data.feature_data, null, 2);
+                document.getElementById('avatar').src = data.avatar_url;
+                const downloadLink = document.getElementById('download-link');
+                downloadLink.href = data.avatar_url;
+                downloadLink.download = data.avatar_filename;
+                downloadLink.style.display = 'inline-block';
+            }
+        });
+    </script>
+</body>
+</html>
