@@ -10,16 +10,20 @@ app = Flask(__name__)
 
 mp_face_mesh = mp.solutions.face_mesh
 
-# Define landmarks for facial features
+# Định nghĩa các điểm landmark cho các bộ phận trên khuôn mặt
 EYEBROW_LANDMARKS = [33, 133, 153, 154]
-MOUTH_LANDMARKS = list(range(61, 81))
+MOUTH_LANDMARKS = [
+    61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 185, 40, 39, 37, 0, 267, 
+    269, 270, 409, 78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 191, 80, 
+    81, 82, 13, 312, 311, 310, 415
+]
 NOSE_LANDMARKS = [1, 2, 5, 6, 7, 8, 9, 10, 11]
 EAR_LANDMARKS = [234, 454]
 HAIR_LANDMARKS = [1, 2, 3]
-EYE_LANDMARKS = list(range(33, 133))  # Adjust if needed
+EYE_LANDMARKS = list(range(33, 133))  # Điều chỉnh nếu cần
 
 def get_landmark_positions(face_landmarks, landmark_indices):
-    """Extract coordinates from key facial landmarks."""
+    """Lấy tọa độ từ các điểm landmark trên khuôn mặt."""
     positions = {}
     for index in landmark_indices:
         x = face_landmarks.landmark[index].x
@@ -28,11 +32,11 @@ def get_landmark_positions(face_landmarks, landmark_indices):
     return positions
 
 def calculate_distance(p1, p2):
-    """Calculate distance between two points."""
+    """Tính khoảng cách giữa hai điểm."""
     return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 def analyze_face_landmarks(face_landmarks):
-    """Analyze facial landmarks to determine features."""
+    """Phân tích các điểm landmark trên khuôn mặt để xác định các đặc điểm."""
     landmark_data = {
         "ears": "attached",
         "eyebrows": "up",
@@ -40,10 +44,10 @@ def analyze_face_landmarks(face_landmarks):
         "hair": "full",
         "nose": "curve",
         "mouth": "smile",
-        "eyes": "eyes"  # Default eye state
+        "eyes": "eyes"  # Trạng thái mắt mặc định
     }
 
-    # Analyze eyebrows
+    # Phân tích lông mày
     eyebrow_positions = get_landmark_positions(face_landmarks, EYEBROW_LANDMARKS)
     eyebrow_y_values = [pos['y'] for pos in eyebrow_positions.values()]
     if np.mean(eyebrow_y_values) < 0.5:
@@ -54,42 +58,37 @@ def analyze_face_landmarks(face_landmarks):
         else:
             landmark_data["eyebrows"] = "down"
 
-    # Analyze mouth
+    # Phân tích miệng
     mouth_positions = get_landmark_positions(face_landmarks, MOUTH_LANDMARKS)
-    mouth_y_values = [pos['y'] for pos in mouth_positions.values()]
+    top_lip_y = [mouth_positions[i]['y'] for i in MOUTH_LANDMARKS[:20]]
+    bottom_lip_y = [mouth_positions[i]['y'] for i in MOUTH_LANDMARKS[20:]]
 
-    if len(mouth_y_values) < 16:
-        landmark_data["mouth"] = "unknown"  # Insufficient data case
-    else:
-        top_lip_y = mouth_y_values[0:8]
-        bottom_lip_y = mouth_y_values[8:16]
+    top_lip_height = np.max(top_lip_y) - np.min(top_lip_y)
+    bottom_lip_height = np.max(bottom_lip_y) - np.min(bottom_lip_y)
+    
+    mouth_width = calculate_distance(
+        (mouth_positions[MOUTH_LANDMARKS[0]]['x'], mouth_positions[MOUTH_LANDMARKS[0]]['y']),
+        (mouth_positions[MOUTH_LANDMARKS[20]]['x'], mouth_positions[MOUTH_LANDMARKS[20]]['y'])
+    )
 
-        top_lip_height = np.max(top_lip_y) - np.min(top_lip_y)
-        bottom_lip_height = np.max(bottom_lip_y) - np.min(bottom_lip_y)
-        
-        mouth_width = calculate_distance(
-            (mouth_positions[MOUTH_LANDMARKS[0]]['x'], mouth_positions[MOUTH_LANDMARKS[0]]['y']),
-            (mouth_positions[MOUTH_LANDMARKS[10]]['x'], mouth_positions[MOUTH_LANDMARKS[10]]['y'])
-        )
+    if top_lip_height > 0.02 and bottom_lip_height > 0.02 and mouth_width > 0.05:
+        landmark_data["mouth"] = "smile"
+    elif top_lip_height < 0.015 and bottom_lip_height < 0.015 and mouth_width < 0.05:
+        landmark_data["mouth"] = "frown"
+    elif top_lip_height < 0.02 and bottom_lip_height > 0.02:
+        landmark_data["mouth"] = "pucker"
+    elif top_lip_height > 0.02 and bottom_lip_height < 0.02:
+        landmark_data["mouth"] = "smirk"
+    elif top_lip_height < 0.015 and bottom_lip_height > 0.03:
+        landmark_data["mouth"] = "sad"
+    elif top_lip_height > 0.03 and bottom_lip_height < 0.015:
+        landmark_data["mouth"] = "laughing"
+    elif top_lip_height > 0.015 and bottom_lip_height < 0.015:
+        landmark_data["mouth"] = "nervous"
+    elif top_lip_height > 0.025 and bottom_lip_height > 0.025:
+        landmark_data["mouth"] = "surprised"
 
-        if top_lip_height > 0.02 and bottom_lip_height > 0.02 and mouth_width > 0.05:
-            landmark_data["mouth"] = "smile"
-        elif top_lip_height < 0.015 and bottom_lip_height < 0.015 and mouth_width < 0.05:
-            landmark_data["mouth"] = "frown"
-        elif top_lip_height < 0.02 and bottom_lip_height > 0.02:
-            landmark_data["mouth"] = "pucker"
-        elif top_lip_height > 0.02 and bottom_lip_height < 0.02:
-            landmark_data["mouth"] = "smirk"
-        elif top_lip_height < 0.015 and bottom_lip_height > 0.03:
-            landmark_data["mouth"] = "sad"
-        elif top_lip_height > 0.03 and bottom_lip_height < 0.015:
-            landmark_data["mouth"] = "laughing"
-        elif top_lip_height > 0.015 and bottom_lip_height < 0.015:
-            landmark_data["mouth"] = "nervous"
-        elif top_lip_height > 0.025 and bottom_lip_height > 0.025:
-            landmark_data["mouth"] = "surprised"
-
-    # Analyze nose
+    # Phân tích mũi
     nose_positions = get_landmark_positions(face_landmarks, NOSE_LANDMARKS)
     nose_width = calculate_distance(
         (nose_positions[NOSE_LANDMARKS[0]]['x'], nose_positions[NOSE_LANDMARKS[0]]['y']),
@@ -102,22 +101,22 @@ def analyze_face_landmarks(face_landmarks):
     else:
         landmark_data["nose"] = "curve"
 
-    # Analyze hair
+    # Phân tích tóc
     hair_positions = get_landmark_positions(face_landmarks, HAIR_LANDMARKS)
     hair_width = calculate_distance(
         (hair_positions[HAIR_LANDMARKS[0]]['x'], hair_positions[HAIR_LANDMARKS[0]]['y']),
         (hair_positions[HAIR_LANDMARKS[1]]['x'], hair_positions[HAIR_LANDMARKS[1]]['y'])
     )
     if hair_width < 0.05:
-        landmark_data["hair"] = "dannyPhantom"
+        landmark_data["hair"] = "mrClean"
     elif hair_width < 0.1:
         landmark_data["hair"] = "dougFunny"
     elif hair_width < 0.15:
         landmark_data["hair"] = "fonze"
     else:
-        landmark_data["hair"] = "full"
+        landmark_data["hair"] = "dannyPhantom"
 
-    # Analyze ears
+    # Phân tích tai
     ear_positions = get_landmark_positions(face_landmarks, EAR_LANDMARKS)
     if len(ear_positions) == 2:
         ear_distance = calculate_distance(
@@ -129,10 +128,10 @@ def analyze_face_landmarks(face_landmarks):
         else:
             landmark_data["ears"] = "attached"
 
-    # Analyze eyes
+    # Phân tích mắt
     eye_positions = get_landmark_positions(face_landmarks, EYE_LANDMARKS)
     if len(eye_positions) >= 2:
-        # Calculate average eye width
+        # Tính toán chiều rộng trung bình của mắt
         left_eye_width = calculate_distance(
             (eye_positions[EYE_LANDMARKS[0]]['x'], eye_positions[EYE_LANDMARKS[0]]['y']),
             (eye_positions[EYE_LANDMARKS[16]]['x'], eye_positions[EYE_LANDMARKS[16]]['y'])
@@ -149,7 +148,7 @@ def analyze_face_landmarks(face_landmarks):
         elif left_eye_width > 0.07 and right_eye_width > 0.07:
             landmark_data["eyes"] = "smiling"
         else:
-            landmark_data["eyes"] = "round"  # Default state if not matching other conditions
+            landmark_data["eyes"] = "round"  # Trạng thái mặc định nếu không khớp các điều kiện khác
 
     return landmark_data
 
